@@ -1,61 +1,80 @@
-# AAI IT Asset Management System
+# AAI AssetFlow - IT Asset and Hardware Lifecycle Management System
 
-An enterprise-grade IT Asset Management System developed for the **Airports Authority of India (AAI)** to manage, track, and audit organizational IT hardware, network resources, software licenses, and employee assignments through a centralized dashboard.
+An enterprise-grade IT Asset Management System developed for the **Airports Authority of India (AAI)** to manage, track, and audit organizational IT hardware, network resources, software licenses, and employee assignments through a centralized, secure web dashboard.
 
 ---
 
-## 🛠️ Technology Stack
+## Why AAI AssetFlow? (Rationale)
 
-| Component | Technology | Description |
+Airports and aviation facilities operate in high-security, high-availability environments. Managing IT assets (such as workstations, ATC terminal monitors, routers, and switches) in these settings using spreadsheets presents significant challenges:
+* **No Normalization & Data Integrity:** Duplication of names, brand names, and locations leads to spelling errors and inconsistent reports.
+* **Lack of Specifications Consistency:** A Desktop CPU requires columns like *RAM Slots, Mouse Serial, and Processor Speed*, while a Network Switch needs *IP Address, Hostname, and VLAN*. Spreadsheets result in countless sparse, `NULL`-heavy tables.
+* **Audit Trails & Security:** IT hardware allocation must be strictly linked to active employees with complete transaction dates, return flags, and administrator logs to comply with government audit requirements.
+* **Clearance and Exit Checklists:** When an employee leaves a station or retires, they must obtain a formal handover sign-off (withdrawal report) listing every asset returned to store.
+
+**AAI AssetFlow** resolves these pain points by implementing a custom **3NF normalized relational schema** combined with a **dynamic type schema builder** to allow hardware specifications separation, strict **JWT-based authorization**, and a complete audit logger.
+
+---
+
+## Technology Stack
+
+| Layer | Component | Description |
 | :--- | :--- | :--- |
-| **Frontend** | React (TypeScript) + Vite | Fast, modern SPA framework with strict typing. |
-| **Styling** | Tailwind CSS + Shadcn UI | Premium, clean layout with dark mode support. |
-| **Routing** | TanStack Router | Type-safe declarative client-side routing. |
-| **Backend** | Node.js + Express.js | Lightweight REST API server. |
-| **Database** | MySQL (3NF Normalized) | Relational database utilizing a connection pool. |
-| **Authentication** | JSON Web Tokens (JWT) | Secure token-based auth with bcrypt-hashed passwords. |
+| **Frontend** | React 19 + TypeScript + Vite | Compiles into a fast, static Single Page Application (SPA). |
+| **Routing** | TanStack Router | Type-safe declarative client-side route manager. |
+| **State & API** | TanStack Query + Axios | Manages API fetch caching, pagination, and requests synchronization. |
+| **Styling** | Tailwind CSS v4 + Shadcn UI | Curated dark/light theme options using CSS `oklch` variables. |
+| **Backend** | Node.js + Express.js | Lightweight HTTP REST microservice API. |
+| **Database** | MySQL 8.x | High-performance relational DB utilizing a thread-safe connection pool. |
+| **Authentication**| JSON Web Tokens (JWT) | Secure stateless token-based auth with bcrypt password hashing. |
 
 ---
 
-## 📐 System Architecture
+## System Architecture
 
-The application implements a decoupled **Client-Server-Database** architecture:
+The application is built on a decoupled, client-server model communicating over REST JSON interfaces:
 
 ```mermaid
 graph TD
-    subgraph Client (Vite + React SPA)
-        UI[User Interface Components]
-        TSR[TanStack Router]
-        AuthC[Auth Context]
-        AxiosC[Axios API Client]
+    subgraph Client [Client Application - React SPA]
+        UI[User Interface Components / Dialogs]
+        TSR[TanStack Router / File Routing]
+        AuthC[Auth Context / localSession]
+        Query[TanStack Query / Cache State]
+        Axios[Axios HTTP Client / Token Injection]
     end
 
-    subgraph Server (Express.js API)
-        AuthM[Auth Middleware]
-        Routes[API Routes]
-        Controllers[API Controllers]
-        DBPool[MySQL Connection Pool]
+    subgraph Server [Express.js REST API Server]
+        AuthM[Auth JWT Middleware]
+        Routes[API Express Routes]
+        Controllers[Controller Logic / Transactions]
+        Pool[MySQL Connection Pool / db.js]
     end
 
-    subgraph Database (MySQL)
-        Schema[(3NF Database)]
+    subgraph Database [Database - Relational MySQL]
+        MySQL[(AAI Asset Database - InnoDB)]
     end
 
+    %% Flow arrows
     UI --> TSR
     UI --> AuthC
-    AuthC --> AxiosC
-    AxiosC -- Protected HTTP Request (JWT) --> AuthM
+    AuthC --> Axios
+    Axios -- "HTTP REST Request (JWT in Header)" --> AuthM
     AuthM --> Routes
     Routes --> Controllers
-    Controllers --> DBPool
-    DBPool --> Schema
+    Controllers --> Pool
+    Pool -->|"Parameterized SQL Queries"| MySQL
+    MySQL -->|"Relational Data Sets"| Pool
+    Controllers -->|"JSON API Responses"| Axios
+    Axios --> Query
+    Query --> UI
 ```
 
 ---
 
-## 🗄️ Database Design (Entity-Relationship Diagram)
+## Database Design and ER Diagram (3NF)
 
-The database schema is strictly normalized in **Third Normal Form (3NF)** to guarantee data integrity, eliminate redundancy, and ensure high query performance via database indexes.
+To ensure zero redundant storage and prevent anomalies, lookup columns like `brands`, `locations`, `departments`, `asset_status`, `processors`, and `operating_systems` are fully isolated. Physical hardware specs are divided into dedicated spec-tables linked to the main `assets` table via 1-to-1 relationships.
 
 ```mermaid
 erDiagram
@@ -167,6 +186,32 @@ erDiagram
         text remarks
     }
 
+    withdrawn_reports {
+        int report_id PK
+        int sl_no
+        varchar user_name
+        varchar department
+        varchar model
+        int items
+        varchar cwn
+        varchar cpu_id
+        varchar monitor_id
+        varchar keyboard_id
+        varchar mouse_id
+        varchar ups_id
+        varchar printer_id
+        varchar scanner_id
+        varchar lap_id
+        varchar lap_adap
+        varchar lap_bag
+        varchar lap_mse
+        varchar wo
+        varchar headset
+        varchar webcam
+        text remarks
+        timestamp created_at
+    }
+
     departments ||--o{ users : "employs"
     designations ||--o{ users : "defines"
     employee_types ||--o{ users : "classifies"
@@ -183,10 +228,10 @@ erDiagram
     assets ||--|| laptop_details : "1-to-1 spec"
     assets ||--|| network_details : "1-to-1 network"
 
-    users ||--o{ user_asset_assignment : "assigned"
-    assets ||--o{ user_asset_assignment : "allocated"
+    users ||--o{ user_asset_assignment : "active assign"
+    assets ||--o{ user_asset_assignment : "active assign"
     assets ||--o{ asset_assignment_history : "logs history"
-    users ||--o{ asset_assignment_history : "references history"
+    users ||--o{ asset_assignment_history : "logs history"
 ```
 
 ### Key Normalization Practices in the Schema:
@@ -196,129 +241,253 @@ erDiagram
 
 ---
 
-## 📂 Codebase File Directory Explanation
+## System Interactions and Data Flow
 
-Here is a breakdown of the key files in the repository:
+This sequence chart outlines the transaction life-cycle when an administrator adds and allocates an asset:
 
-### 📂 Root Directory
-* [package.json](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/package.json) - Defines project details, scripts, and dev dependencies for the Vite frontend framework.
-* [vite.config.ts](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/vite.config.ts) - Configuration for Vite (uses tailwind, react plugins, and configures paths).
-* [tsconfig.json](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/tsconfig.json) - Strict TypeScript Compiler configuration.
-* [components.json](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/components.json) - Radix UI / Shadcn layout installer schema.
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as IT Administrator
+    participant UI as Web Frontend (Vite)
+    participant API as Express API Server
+    participant DB as MySQL Database
 
----
+    Admin->>UI: Enter credentials & Click "Sign In"
+    UI->>API: POST /api/auth/login
+    API->>DB: Query admin credentials hash
+    DB-->>API: Return hash
+    API-->>UI: Return JWT Token
+    Note over UI: Save JWT in localStorage & AuthContext
 
-### 📂 Backend Server (`/server`)
-Responsible for SQL query management, API endpoints, user authentication, and data integrity transactions.
+    Admin->>UI: Select "Desktop CPU" -> Fill Spec Form -> Submit
+    UI->>API: POST /api/assets (with JWT header)
+    Note over API: Auth Middleware decodes JWT
+    API->>DB: START TRANSACTION
+    API->>DB: INSERT INTO assets (...)
+    API->>DB: INSERT INTO cpu_details (specs...)
+    API->>DB: COMMIT TRANSACTION
+    DB-->>API: Transaction Success
+    API-->>UI: 201 Created (Asset Details JSON)
+    UI-->>Admin: Show "Asset Added Successfully"
 
-* [server.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/server.js) - Entry point of the Express API. Binds routing prefixes, parses JSON payloads, handles CORS policies, and runs the listener.
-* [db.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/db.js) - Creates a MySQL connection pool using properties loaded from the `.env` configuration.
-* [init-db.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/init-db.js) - Executes `schema.sql` and `seed.sql` to initialize database structures and populate reference values.
-* [seed-dummy.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/seed-dummy.js) - Seeds the database with sandbox records (test assets, users, and locations) for testing purposes.
-* [schema.sql](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/schema.sql) - The schema source definition for tables, foreign keys, and indexes.
-* [seed.sql](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/seed.sql) - Initial data insert commands for lookups (like departments, statuses, designations).
-* **`📂 routes/`** - Maps specific HTTP request methods and paths to controller modules.
-  * [auth.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/routes/auth.js) - Registration, logins, and password adjustment routes.
-  * [assets.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/routes/assets.js) - Asset collection and asset creation endpoints.
-  * [users.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/routes/users.js) - Employee profiles routes.
-  * [assignments.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/routes/assignments.js) - Asset assignment and release routes.
-  * [masters.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/routes/masters.js) - Master lookup reference tables endpoints.
-  * [withdrawals.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/routes/withdrawals.js) - Asset handover/withdrawal records routes.
-* **`📂 controllers/`** - Houses pure business logic, database queries, and parameters extraction.
-  * [assetsController.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/controllers/assetsController.js) - Implements asset search, dynamic hardware specs insertions, updates, and assignment logs. Incorporates database transactions to guarantee rollbacks during complex queries.
-  * [usersController.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/controllers/usersController.js) - Implements employee CRUD actions and lists individual assigned inventory.
-  * [assignmentsController.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/controllers/assignmentsController.js) - Logic for updating assignment dates, setting returned flags, and appending history entries.
-  * [dashboardController.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/controllers/dashboardController.js) - Aggregate indicators (total assets count, warranty expiries, status counts).
-* **`📂 middleware/`** - Custom filter layers.
-  * [auth.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/middleware/auth.js) - JWT interceptor validating the request's Authorization header using a secret key.
-
----
-
-### 📂 Frontend Application (`/src`)
-Responsible for routing, state tracking, styling, forms validation, and dynamic client screens.
-
-* [router.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/router.tsx) - Initializes TanStack Router.
-* [server.ts](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/server.ts) & [start.ts](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/start.ts) - Integrates the frontend SPA server config.
-* [styles.css](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/styles.css) - Global stylesheets, custom Tailwind utility classes, and layout variables.
-* **`📂 lib/`** - Central utilities.
-  * [api.ts](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/lib/api.ts) - Creates an Axios instance referencing the `/api` backend. Automatically appends the user's stored JWT token to the request headers.
-  * [auth-context.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/lib/auth-context.tsx) - Manages application-wide user sessions, login state, and credentials persistence in `localStorage`.
-* **`📂 components/`** - Reusable UI widgets.
-  * [app-layout.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/components/app-layout.tsx) - Core navigation container with responsive sidebar, notifications alert list, global search, and dark mode toggle.
-  * [asset-form-dialog.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/components/asset-form-dialog.tsx) - Modal displaying a form to create/edit hardware details. Dynamically alters form fields (e.g. CPU fields, RAM size, disk type, or capacity specs) based on the chosen asset type.
-  * [user-form-dialog.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/components/user-form-dialog.tsx) - Form dialog to add/edit employee details.
-* **`📂 routes/`** - Pages mapped via TanStack Router.
-  * [index.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/index.tsx) - Landing/Login portal.
-  * [_app.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/_app.tsx) - Layout Wrapper enforcing authentication on sub-routes.
-  * [_app.dashboard.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/_app.dashboard.tsx) - Analytical summaries, warranty widgets, and department/location asset distributions.
-  * [_app.assets.index.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/_app.assets.index.tsx) - Listing view for all hardware assets with search/filters.
-  * [_app.assets.$id.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/_app.assets.$id.tsx) - Comprehensive detailed record sheet for a single asset, showing history log, hardware/network specifications, and actions.
-  * [_app.assignments.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/_app.assignments.tsx) - Assignment wizard for allocating, returning, and tracking devices.
-  * [_app.network.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/_app.network.tsx) - Hostnames, VLANs, and IP configuration dashboard.
-  * [_app.withdrawals.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/_app.withdrawals.tsx) - Asset handover forms and record logs for employee exit clearance.
-
----
-
-## 🏃 Getting Started & Running Locally
-
-### 1. Prerequisites
-Ensure you have the following installed:
-* Node.js (version 18+)
-* MySQL Server (running locally or remotely)
-
-### 2. Database Environment Configuration
-Create a `.env` file inside the `server/` directory:
-```env
-PORT=5000
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=YourPassword Here
-DB_NAME=aai_asset
-JWT_SECRET=super_secret_key_for_aai_management
-```
-
-### 3. Initialize & Seed Database
-Navigate to the `server/` folder and execute the migration/seed scripts:
-```powershell
-cd server
-npm install
-node init-db.js      # Creates tables and inserts master data
-node seed-dummy.js   # Inserts mock sandbox records
-```
-
-### 4. Run the Backend API Server
-Start the Express server:
-```powershell
-npm start            # Runs node server.js
-```
-
-### 5. Run the Frontend Client Application
-Navigate to the project root in a new terminal window:
-```powershell
-npm install
-npm run dev          # Starts the Vite development server (usually http://localhost:5173)
+    Admin->>UI: Select Employee -> Click "Assign Asset"
+    UI->>API: POST /api/assignments
+    API->>DB: INSERT INTO user_asset_assignment (active)
+    API->>DB: INSERT INTO asset_assignment_history (log)
+    API->>DB: UPDATE assets SET status_id = 'Assigned'
+    DB-->>API: Write ok
+    API-->>UI: 200 OK (Assignment Complete)
+    UI-->>Admin: Update Dashboard Metrics
 ```
 
 ---
 
-## 🔄 Core Business Workflows
+## Project Directory Structure
 
-### 🛡️ Secure Authenticated Routing
-1. When a user submits username/password at `/` ([index.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/index.tsx)), the frontend issues a POST to `/api/auth/login`.
-2. The server authenticates credentials against `app_users`, and responds with a JWT token.
-3. The client stores the JWT in `localStorage` via the `AuthContext` ([auth-context.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/lib/auth-context.tsx)).
-4. Any requests made through the Axios client ([api.ts](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/lib/api.ts)) intercept the call and inject the `Authorization: Bearer <token>` header.
-5. In TanStack Router, the `_app` route checks context status. Unauthenticated requests are immediately redirected back to `/`.
+```
+aai-assetflow/
+├── server/                     # Backend API Microservice
+│   ├── controllers/            # SQL handlers & transactional business logic
+│   ├── middleware/             # Authorization (JWT verify) layer
+│   ├── routes/                 # Express API endpoints routing
+│   ├── .env                    # Local database credentials
+│   ├── create-table.js         # Migration: creates withdrawn_reports table
+│   ├── db.js                   # MySQL Connection Pool initializations
+│   ├── init-db.js              # Full database structure initializer
+│   ├── migrate-custom.js       # Migration: schema updates for JSON custom fields
+│   ├── migrate-indexes.js      # Migration: high-performance index builders
+│   ├── schema.sql              # Relational tables configuration
+│   ├── seed.sql                # Master lookups baseline entries
+│   ├── seed-dummy.js           # Development sandbox seed file
+│   └── server.js               # Express entrypoint
+├── src/                        # Frontend Application
+│   ├── components/             # Reusable React components & form modals
+│   │   ├── ui/                 # Atomic design Radix/Shadcn primitives
+│   │   ├── app-layout.tsx      # Sidebar, Themepersonalization, Nav bar
+│   │   ├── asset-form-dialog.tsx # Dynamic Spec Form Wizard
+│   │   └── user-form-dialog.tsx  # Employee profiles builder
+│   ├── hooks/                  # Custom React hook helpers
+│   ├── img/                    # Static assets & AAI logos
+│   ├── lib/                    # Core configuration and helpers
+│   │   ├── api.ts              # Axios instance configuration & error handlers
+│   │   ├── auth-context.tsx    # AuthSession provider & JWT tracker
+│   │   └── mock-data.ts        # Fallback offline simulation data
+│   ├── routes/                 # File-based routing pages
+│   │   ├── __root.tsx          # Root theme manager & global layout structure
+│   │   ├── index.tsx           # Secured Login screen
+│   │   ├── _app.tsx            # Protected router wrapper
+│   │   ├── _app.dashboard.tsx  # Recharts aggregates & warranty warnings
+│   │   ├── _app.credits.tsx    # AAI intern team carousel page
+│   │   └── _app.withdrawals.tsx # Employee Exit handovers list & PDF generation
+│   ├── styles.css              # Custom Tailwind directives & HSL tokens
+│   ├── router.tsx              # TanStack Router instance
+│   ├── server.ts               # SPA Server SSR compiler logic
+│   └── start.ts                # App boot file
+├── package.json                # Project dependencies and script runner configurations
+├── vite.config.ts              # Vite configuration (plugins, paths resolution)
+└── tsconfig.json               # TypeScript compiler options
+```
 
-### 💻 Dynamic Specifications Form Logic
-Different IT hardware assets require tracking different physical properties (e.g., desktops need RAM slots and mouse IDs, network switches need VLANs, UPS units need capacities).
-1. When creating/editing an asset in [asset-form-dialog.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/components/asset-form-dialog.tsx), selecting an **Asset Type** triggers a layout render change.
-2. If `Desktop CPU` or `Laptop` is chosen, specifications forms render RAM/Storage/OS attributes.
-3. If `Switch` or `UPS` is chosen, the generic capacity input is displayed.
-4. When saved, the controller ([assetsController.js](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/server/controllers/assetsController.js)) utilizes transactional queries to write to the core `assets` table, then dynamically redirects specific specs blocks to `cpu_details`, `laptop_details`, or `equipment_specs` tables.
+---
 
-### 📝 Asset Assignment & Release Tracking
-To allocate a device:
-1. In the **Assignments** screen ([_app.assignments.tsx](file:///c:/Users/HP/OneDrive/ドキュメント/Front-end/Projects/AAI/final/src/routes/_app.assignments.tsx)), you select a target employee and a list of available assets.
-2. The backend inserts a record into `user_asset_assignment` with `returned_date = NULL`, sets the asset status to `Assigned`, and writes to `asset_assignment_history` to log the timestamp and managing admin.
-3. To return/release the asset, the `returned_date` column in `user_asset_assignment` is updated to the current time, liberating the asset status back to `Available`.
+## Folder and Key File Explanation
+
+### Backend Server (`/server`)
+
+| File/Folder | Purpose |
+| :--- | :--- |
+| `controllers/` | Execution of database queries. Houses logic for writing specs, auditing updates, and executing rollback procedures on SQL errors. |
+| `routes/` | Receives incoming HTTP requests and directs them to correct controller handlers. |
+| `db.js` | Uses `mysql2/promise` to export a pool of connections, avoiding database connection timeouts. |
+| `schema.sql` | The database blueprint. Establishes primary keys, cascading foreign key constraints, and lookup indices. |
+| `run_migration.js` | Sets up the authentication table `app_users` and seeds default credentials. |
+| `migrate-custom.js` | Adds JSON schema functionality allowing dynamic custom attributes to be stored inside assets and asset types. |
+| `migrate-indexes.js` | Safely adds database indices for search items (`serial_number`, `employee_name`) to speed up execution. |
+
+### Frontend Application (`/src`)
+
+| File/Folder | Purpose |
+| :--- | :--- |
+| `components/` | Shared UI components. `asset-form-dialog.tsx` handles complex form layout changes based on the selected Asset Type (Desktop specs vs Network specs). |
+| `routes/` | Mapped directly to browser URLs via TanStack Router. File naming with prefix `_app.` enforces authentication check before rendering. |
+| `lib/api.ts` | Configures Axios. Intercepts outgoing requests to append `Authorization: Bearer <token>`, and maps errors to client warnings. |
+| `lib/auth-context.tsx` | Keeps track of who is logged in. Reads JWT contents, saves them in client browser session state, and redirects to login `/` if the token expires. |
+| `styles.css` | Implements Tailwind rules and custom styling. Stores color palettes (`oklch`) for Dark and Light themes. |
+
+---
+
+## Clear Explanation of How It Works
+
+### 1. Secured Authentication Lifecycle
+When the application loads, `_app.tsx` intercepts the request to verify if the user possesses an active JWT in `localStorage`. If no token exists, the router redirects the browser to the login screen `/`.
+* **Login Submit:** The user submits username and password. The backend hashes incoming passwords and compares them to database records via bcrypt.
+* **Token Handshake:** On success, the backend returns a signed JWT containing username, role, and expiration timestamp.
+* **Axios Interception:** The client Axios client (`api.ts`) catches the token. For every subsequent API call, it automatically appends the token in the `Authorization` header.
+
+### 2. Dynamic Spec Form Rendering & Storage
+Different asset types require completely different tracking structures. AAI AssetFlow handles this dynamically:
+* **JSON Custom Schema:** The `asset_types` table contains a `custom_schema` column storing JSON definitions of expected attributes (e.g. `{ "cpu_speed": "text", "vlan": "number" }`).
+* **Conditional Wizard Layout:** When an administrator opens the `asset-form-dialog.tsx` and selects an asset type:
+  1. The UI queries the backend to retrieve that type's specifications structure.
+  2. The form renders input elements matching the schema requirements.
+* **Relational Storage Dispersal:** During insertion, the backend `assetsController.js` creates a MySQL transaction. It writes core information to the `assets` table, then splits secondary characteristics to write to specific specification tables (`cpu_details`, `laptop_details`, or `network_details`) using the shared `asset_id`.
+
+### 3. Allocation and Audit Trails
+An asset can exist in states like `Available`, `Assigned`, `Under Maintenance`, or `Disposed`.
+* **Allocation:** When assigned to a user, the system updates `user_asset_assignment` with the date. It updates the asset status code to `Assigned`.
+* **Auditing:** Concurrently, an entry is added to `asset_assignment_history` documenting who assigned the device, the date, and any remarks.
+* **Release:** Returning the device sets the assignment `returned_date` to the current timestamp and updates the asset status back to `Available`.
+
+### 4. Exit Clearance Withdrawal Certificates
+When employees retire or transfer:
+* **Retrieval Search:** Administrators open the exit clearance panel and search for the employee. The system aggregates all items currently assigned.
+* **Clearance Submission:** The administrator processes the return of all hardware items.
+* **withdrawn_reports Log:** A permanent sign-off sheet is created in the `withdrawn_reports` table documenting the return of specific serial numbers.
+* **PDF Handover:** Using the client-side PDF template, administrators can export a print-ready Handover Certificate directly from the UI.
+
+---
+
+## Step-by-Step Blueprint: How It Was Made
+
+### Phase 1: Relational Data Modeling (3NF)
+1. Drafted the normalization layout. Mapped designations, locations, and departments to separate lookup tables with integer IDs to prevent textual redundancy.
+2. Formulated 1-to-1 spec tables (`cpu_details`, `laptop_details`) to handle hardware configurations instead of using multiple `NULL` columns in a single table.
+3. Created `schema.sql` to execute foreign key constraints with `ON DELETE RESTRICT` to prevent orphan records.
+
+### Phase 2: Building the API Microservice
+1. Initialized an Express app with `cors` and `express.json()` middlewares.
+2. Created a connection pool configuration in `db.js`.
+3. Coded the controllers using async/await patterns. Wrapped multitable modifications inside MySQL transactions:
+   ```javascript
+   await db.query('START TRANSACTION');
+   // ... inserts ...
+   await db.query('COMMIT');
+   ```
+4. Added JWT creation on the `/api/auth/login` route and verified it via header interceptors.
+
+### Phase 3: SPA Client Configuration & Routes
+1. Set up a Vite project configured with TanStack Router.
+2. Established Tailwind styling variables to manage light, dark, and system themes.
+3. Configured API paths in `api.ts` to map frontend fetch calls directly to the Express server port.
+
+### Phase 4: Integration and Validations
+1. Standardized input models. Implemented React Hook Form with Zod schemas to check inputs (like email formats and IP address structures) before sending them to the API.
+2. Wired dashboard widgets to display dynamic Recharts visualizations using aggregates retrieved from the server.
+3. Added the credits page carousel to introduce the AAI development team.
+
+---
+
+## How to Run and Verify Locally
+
+### Prerequisites
+* **Node.js** (v18 or higher)
+* **MySQL Server** running on your local machine
+
+---
+
+### Step 1: Database Setup
+1. Log in to your local MySQL terminal and create a database:
+   ```sql
+   CREATE DATABASE aai_asset;
+   ```
+2. Navigate to the `server/` directory and configure the environment variables:
+   - Create a `.env` file:
+     ```env
+     PORT=5000
+     DB_HOST=localhost
+     DB_USER=root
+     DB_PASSWORD=your_mysql_password
+     DB_NAME=aai_asset
+     JWT_SECRET=super_secret_jwt_key_aai_123
+     ```
+
+3. Run the database setup script to compile the schema and load seed lookups:
+   ```bash
+   cd server
+   npm install
+   node init-db.js
+   ```
+
+4. Populate the database with test records (mock hardware, departments, and employees) for sandbox verification:
+   ```bash
+   node seed-dummy.js
+   ```
+
+5. Run database migrations to set up login accounts and indexes:
+   ```bash
+   node run_migration.js
+   node migrate-custom.js
+   node migrate-indexes.js
+   node create-table.js
+   ```
+
+---
+
+### Step 2: Run the Express Backend Server
+Start the development server using nodemon:
+```bash
+npm run dev
+```
+*The backend API server will run on `http://localhost:5000`.*
+
+---
+
+### Step 3: Run the Frontend Client Application
+1. Open a new terminal window at the project root directory.
+2. Install client dependencies:
+   ```bash
+   npm install
+   ```
+3. Run the Vite development server:
+   ```bash
+   npm run dev
+   ```
+4. Open your browser and navigate to the address shown (usually `http://localhost:8080`).
+
+---
+
+### Test Credentials
+Use the following credentials on the login screen to verify local access:
+* **Username:** `admin`
+* **Password:** `admin` (or `regular` / `regular` for non-admin view)
