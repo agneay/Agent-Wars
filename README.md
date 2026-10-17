@@ -6,8 +6,7 @@ An enterprise-grade IT Asset Management System developed for the **Airports Auth
 
 
 ##Demo:
-##Employee ID / Username - admin
-##Password - admin
+Employee ID / Username - admin , Password - admin
 ---
 
 ## Why AAI AssetFlow? (Rationale)
