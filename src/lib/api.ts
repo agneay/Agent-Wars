@@ -1,4 +1,5 @@
-const API_BASE = 'http://localhost:5000/api';
+import { API_ORIGIN } from './config';
+const API_BASE = `${API_ORIGIN}/api`;
 
 const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
     const token = localStorage.getItem("auth_token");

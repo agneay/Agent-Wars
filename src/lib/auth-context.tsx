@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { API_ORIGIN } from "./config";
 
 export type Role = "admin" | "regular" | null;
 
@@ -22,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, pass: string) => {
     try {
-      const res = await fetch("http://localhost:5000/api/auth/login", {
+      const res = await fetch(`${API_ORIGIN}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password: pass })
@@ -50,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const changePassword = async (oldPass: string, newPass: string) => {
     try {
       const token = localStorage.getItem("auth_token");
-      const res = await fetch("http://localhost:5000/api/auth/change-password", {
+      const res = await fetch(`${API_ORIGIN}/api/auth/change-password`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",

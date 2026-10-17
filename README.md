@@ -491,3 +491,27 @@ npm run dev
 Use the following credentials on the login screen to verify local access:
 * **Username:** `admin`
 * **Password:** `admin` (or `regular` / `regular` for non-admin view)
+
+---
+
+## AirportOps AI (Agent Wars)
+
+Voice/text multi-agent IT operations on top of AssetFlow. Open **AI Ops** in the sidebar (`/ops`).
+
+**Setup (once, in `server/`):**
+```bash
+npm install
+npm run migrate:ops     # adds ops_* tables only (reverse: npm run migrate:ops:down)
+npm run demo:seed       # SYNTHETIC demo data: E102, E201, E301, assets DEMO-* (re-run to reset)
+npm start
+```
+Optional: set `ANTHROPIC_API_KEY` in `server/.env` to enable Claude as the fallback intent parser for free-form requests (common requests are routed deterministically with zero LLM calls).
+
+**How it works**
+- **MCP server**: 21 typed tools at `POST /mcp` (Streamable HTTP, JWT bearer auth). Every agent data operation goes through it. Also usable from Claude Desktop/Code via stdio: `npm run mcp:stdio` (read-only unless `OPS_MCP_ROLE=admin`).
+- **Agents** (`server/ops/agents/`): Supervisor (intent + DAG plan), Conversation, Asset Intelligence, Diagnostics, Logistics (compat@1 rules + reservations), Execution, Verification, Feedback.
+- **Engine** (`server/ops/engine.js`): parallel dependency-aware scheduling, timeouts, retries with backoff, cancellation, persisted state, resume after restart.
+- **Safety**: mutations need the admin role, a human-APPROVED approval matching the exact arguments (checked inside the DB transaction), and an idempotency key. Changes are dry-run (rolled back) before approval and re-read from the DB afterwards (8 verification checks).
+- **Voice**: browser Web Speech API (Chrome/Edge) for speech-to-text and speech output; say "approve" / "reject" / "the second one". Text works everywhere.
+
+**Demo scenarios** (buttons on the page): E102 laptop replacement (full flow → approve → verified → handover report), E201 with two laptops (asks which, answer "the second one"), E301 plotter with no stock, nonexistent asset AAI-XYZ-999.

@@ -6,7 +6,9 @@ import pool from './db.js';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+// CORS_ORIGIN: comma-separated list of allowed frontend origins when hosted (unset = allow all, for local dev).
+const origins = (process.env.CORS_ORIGIN || '').split(',').map(o => o.trim()).filter(Boolean);
+app.use(cors(origins.length ? { origin: origins } : {}));
 app.use(express.json());
 
 import masterRoutes from './routes/masters.js';
@@ -17,6 +19,8 @@ import assignmentRoutes from './routes/assignments.js';
 import vendorRoutes from './routes/vendors.js';
 import withdrawalRoutes from './routes/withdrawals.js';
 import authRoutes from './routes/auth.js';
+import opsRoutes from './ops/routes.js';
+import { mcpRouter } from './ops/mcp/http.js';
 
 app.use('/api/masters', masterRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -26,6 +30,8 @@ app.use('/api/assignments', assignmentRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/ops', opsRoutes);   // AirportOps AI workflows
+app.use('/mcp', mcpRouter());      // MCP server (Streamable HTTP)
 
 const PORT = process.env.PORT || 5000;
 
@@ -41,6 +47,6 @@ app.get('/api/health', async (req, res) => {
 
 // Old inline routes removed
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });

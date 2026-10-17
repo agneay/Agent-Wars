@@ -1,7 +1,7 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard, Users, HardDrive, Network, AppWindow,
-  ArrowRightLeft, Undo2, BarChart3, Settings, LogOut, Info, Store
+  ArrowRightLeft, Undo2, BarChart3, Settings, LogOut, Info, Store, Bot
 } from "lucide-react";
 import { GlobalSearch } from "@/components/global-search";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,7 @@ import logoImg from "../img/logo_15042021.png";
 
 const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/ops", label: "AI Ops", icon: Bot },
   { to: "/users", label: "Users", icon: Users },
   { to: "/assets", label: "Assets", icon: HardDrive },
   { to: "/network", label: "Network", icon: Network },

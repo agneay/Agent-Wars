@@ -15,6 +15,7 @@ import { Route as AppWithdrawalsRouteImport } from './routes/_app.withdrawals'
 import { Route as AppSoftwareRouteImport } from './routes/_app.software'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppReportsRouteImport } from './routes/_app.reports'
+import { Route as AppOpsRouteImport } from './routes/_app.ops'
 import { Route as AppNetworkRouteImport } from './routes/_app.network'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppCreditsRouteImport } from './routes/_app.credits'
@@ -53,6 +54,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
 const AppReportsRoute = AppReportsRouteImport.update({
   id: '/reports',
   path: '/reports',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppOpsRoute = AppOpsRouteImport.update({
+  id: '/ops',
+  path: '/ops',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNetworkRoute = AppNetworkRouteImport.update({
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/credits': typeof AppCreditsRoute
   '/dashboard': typeof AppDashboardRoute
   '/network': typeof AppNetworkRoute
+  '/ops': typeof AppOpsRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/software': typeof AppSoftwareRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/credits': typeof AppCreditsRoute
   '/dashboard': typeof AppDashboardRoute
   '/network': typeof AppNetworkRoute
+  '/ops': typeof AppOpsRoute
   '/reports': typeof AppReportsRoute
   '/settings': typeof AppSettingsRoute
   '/software': typeof AppSoftwareRoute
@@ -148,6 +156,7 @@ export interface FileRoutesById {
   '/_app/credits': typeof AppCreditsRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/network': typeof AppNetworkRoute
+  '/_app/ops': typeof AppOpsRoute
   '/_app/reports': typeof AppReportsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/software': typeof AppSoftwareRoute
@@ -167,6 +176,7 @@ export interface FileRouteTypes {
     | '/credits'
     | '/dashboard'
     | '/network'
+    | '/ops'
     | '/reports'
     | '/settings'
     | '/software'
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
     | '/credits'
     | '/dashboard'
     | '/network'
+    | '/ops'
     | '/reports'
     | '/settings'
     | '/software'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/_app/credits'
     | '/_app/dashboard'
     | '/_app/network'
+    | '/_app/ops'
     | '/_app/reports'
     | '/_app/settings'
     | '/_app/software'
@@ -261,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/reports'
       fullPath: '/reports'
       preLoaderRoute: typeof AppReportsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/ops': {
+      id: '/_app/ops'
+      path: '/ops'
+      fullPath: '/ops'
+      preLoaderRoute: typeof AppOpsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/network': {
@@ -341,6 +360,7 @@ interface AppRouteChildren {
   AppCreditsRoute: typeof AppCreditsRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppNetworkRoute: typeof AppNetworkRoute
+  AppOpsRoute: typeof AppOpsRoute
   AppReportsRoute: typeof AppReportsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppSoftwareRoute: typeof AppSoftwareRoute
@@ -358,6 +378,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCreditsRoute: AppCreditsRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppNetworkRoute: AppNetworkRoute,
+  AppOpsRoute: AppOpsRoute,
   AppReportsRoute: AppReportsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppSoftwareRoute: AppSoftwareRoute,

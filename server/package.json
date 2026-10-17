@@ -6,15 +6,24 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "migrate:ops": "node scripts/migrate-ops.js up",
+    "migrate:ops:down": "node scripts/migrate-ops.js down",
+    "demo:seed": "node scripts/demo-seed.js",
+    "mcp:stdio": "node ops/mcp/stdio.js",
+    "bench": "node bench/run.js",
+    "test:ops": "node bench/scenarios.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.135.0",
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "jsonwebtoken": "^9.0.3",
-    "mysql2": "^3.11.3"
+    "mysql2": "^3.11.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
